@@ -1,5 +1,5 @@
 # PowerShell-ZAP
-# Copyright (c) 2015 Joona Immonen
+# Copyright (c) 2015 Solita Oy / Joona Immonen
 #
 # This is created against 2.4.2 OWASP-ZAP
 # Purpose of the module is provide few easy to use functions
