@@ -2,18 +2,26 @@
 # Copyright (c) 2015 Joona Immonen
 #
 # This is created against 2.4.2 OWASP-ZAP
+# Purpose of the module is provide few easy to use functions
+# for OWASP-ZAP to be used from powershell. 
+# E.g. starting, stopping, spidering, scanning and saving results
 # 
 # More information about how to use ZAP API please visit your own zaps local API
 # e.g. http://localhost:8084/UI/ and the documentation
 # https://github.com/zaproxy/zaproxy/wiki/ApiGen_Index
 #
 #Requires -Version 4.0
+$ErrorActionPreference = 'Stop'
 
-
+# OWASP-ZAP is at default in 8084 port
 $script:zapBaseAddress = "http://localhost:8084"
-$script:zapLocation = "C:\Program Files (x86)\OWASP\Zed Attack Proxy\"
-$script:zapReportLocation = "C:\Temp\zapresults.xml"
-$script:urlToScan = "http://localhost/"
+# OWASP-ZAP is at default installed under program files \OWASP\Zed Attack Proxy\
+$script:zapLocation = ((${env:ProgramFiles(x86)}, ${env:ProgramFiles} -ne $null)[0]+"\OWASP\Zed Attack Proxy\")
+# Results can be by default stored in temp
+$script:zapReportLocation = ($env:temp+"\zapresults.xml")
+# Url to scan is the website to scan
+$script:urlToScan = $null
+# These are used for storing latest spidering and scanning
 $script:currentSpiderId
 $script:currentScanId
 
@@ -91,6 +99,13 @@ function Set-ZapUrlToScan
     param(
         [Parameter(Position=0,Mandatory=1)][string]$scanUrl
     )
+    # if the url ends with / remove the last character
+    $length = $scanUrl.Length
+    if($scanUrl.Substring($length - 1) -eq "/")
+    {
+        Write-Verbose "Removing last / character from url $scanUrl"
+        $scanUrl = $scanUrl.Substring(0,$scanUrl.Length-1)
+    }
     $script:urlToScan = $scanUrl
 }
 
@@ -143,6 +158,8 @@ Set-ZapScanPolicies
 function Set-ZapScanPolicies
 {
     [CmdletBinding()]
+    param()
+    
     # enable all scan policies
     $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/enableAllScanners/?zapapiformat=JSON&scanPolicyName=")
     # let the spider parse sitemap and robots.txt
@@ -180,6 +197,10 @@ Invoke-ZapSpidering
 function Invoke-ZapSpidering
 {
     [CmdletBinding()]
+    param()
+    
+    Test-ZAPUrlToScanIsValid
+    
     $spiderId = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/spider/action/scan/?zapapiformat=JSON&url="+$script:urlToScan) | ConvertFrom-Json
     Write-Verbose ("Spidering invoked with message "+$spiderId)
     $spiderStatus = 0
@@ -206,6 +227,10 @@ Invoke-ZapAjaxSpidering
 function Invoke-ZapAjaxSpidering
 {   
     [CmdletBinding()]
+    param()
+    
+    Test-ZAPUrlToScanIsValid
+    
     $ajaxStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ajaxSpider/action/scan/?zapapiformat=JSON&url="+$script:urlToScan) | ConvertFrom-Json
     Write-Verbose ("Ajax spidering started with message "+$ajaxStatus)
     $spiderStatus = 0
@@ -231,6 +256,9 @@ Invoke-ZapScanning
 function Invoke-ZapScanning
 {
     [CmdletBinding()]
+    param()
+    
+    Test-ZAPUrlToScanIsValid
     #scan
     $scanId = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ascan/action/scan/?url="+$script:urlToScan) | ConvertFrom-Json
     Write-Verbose ("Scanning invoked with message "+$scanId)
@@ -258,6 +286,7 @@ Remove-ZapAllScans
 function Remove-ZapAllScans
 {
     [CmdletBinding()]
+    param()
     # remove spider
     $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/removeAllScans/?zapapiformat=JSON")
     Write-Verbose ("Removed all spiders with message "+$removeStatus)
@@ -279,6 +308,7 @@ Remove-ZapAllScans
 function Remove-ZapCurrentScan
 {
     [CmdletBinding()]
+    param()
     # remove scan
     $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/removeScan/?zapapiformat=JSON&scanId="+$script:currentScanId)
     Write-Verbose ("Removed a scan id ("+$script:currentScanId+") with message "+$removeStatus)
@@ -297,6 +327,7 @@ Remove-ZapCurrentSpider
 function Remove-ZapCurrentSpider
 {
     [CmdletBinding()]
+    param()
     # remove spider
     $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/removeScan/?zapapiformat=JSON&scanId="+$script:currentSpiderId)
     Write-Verbose ("Removed a spider id ("+$script:currentSpiderId+") with message "+$removeStatus)
@@ -315,6 +346,10 @@ Get-ZapAlerts
 function Get-ZapAlerts
 {
     [CmdletBinding()]
+    param()
+    
+    Test-ZAPUrlToScanIsValid
+    
     #fetch the report
     [xml]$xmlReport = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/OTHER/core/other/xmlreport/")
     $siteReport = $xmlReport.OWASPZAPReport.site | ? { $_.name -eq $script:urlToScan } | select alerts
@@ -334,6 +369,10 @@ Get-ZapAlerts
 function Save-ZapReport
 {
     [CmdletBinding()]
+    param()
+    
+    Test-ZAPUrlToScanIsValid
+    
     $alerts = Get-ZapAlerts
     $alertMeasure = $alerts | measure 
 
@@ -374,4 +413,25 @@ function Save-ZapReport
     # Save File
     $oXMLDocument.Save($script:zapReportLocation)
     Write-Verbose ("Report saved to "+$script:zapReportLocation)
+}
+
+function script:Test-ZAPUrlToScanIsValid
+{
+    if($script:urlToScan -eq $null) 
+    {
+        throw "ZAP URL to scan was not set"
+    }
+    $urlToScanStatus = 500
+    try 
+    {
+        $urlToScanStatus = (Invoke-WebRequest $script:urlToScan).StatusCode
+    }
+    catch
+    {
+        throw "ZAP URL to scan $urlToScanStatus could not be reached with error message $_.Exception.Message"
+    }
+    if($urlToScanStatus -ne 200)
+    {
+        throw "ZAP URL to scan $urlToScanStatus resulted unexpected status with code $urlToScanStatus"
+    }
 }
