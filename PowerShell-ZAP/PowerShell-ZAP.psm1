@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 # OWASP-ZAP is at default in 8084 port
 $script:zapBaseAddress = "http://localhost:8084"
 # OWASP-ZAP is at default installed under program files \OWASP\Zed Attack Proxy\
-$script:zapLocation = "${env:ProgramFiles}\OWASP\Zed Attack Proxy\"
+$script:zapLocation = "C:\Program Files\OWASP\Zed Attack Proxy\"
 # Results can be by default stored in temp
 $script:zapReportLocation = ($env:temp+"\zapresults.xml")
 # Url to scan is the website to scan
@@ -125,7 +125,7 @@ function Start-Zap
     param()
     try 
     {
-        $zapStatus = (Invoke-WebRequest $script:zapBaseAddress).StatusCode
+        $zapStatus = (Invoke-WebRequest $script:zapBaseAddress -usebasicparsing).StatusCode
     }
     catch
     {
@@ -161,10 +161,10 @@ function Set-ZapScanPolicies
     param()
     
     # enable all scan policies
-    $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/enableAllScanners/?zapapiformat=JSON&scanPolicyName=")
+    $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/enableAllScanners/?zapapiformat=JSON&scanPolicyName=") -usebasicparsing
     # let the spider parse sitemap and robots.txt
-    $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/setOptionParseSitemapXml/?zapapiformat=JSON&Boolean=true")
-    $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/setOptionParseRobotsTxt/?zapapiformat=JSON&Boolean=true")
+    $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/setOptionParseSitemapXml/?zapapiformat=JSON&Boolean=true") -usebasicparsing
+    $policyStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/setOptionParseRobotsTxt/?zapapiformat=JSON&Boolean=true") -usebasicparsing
 }
 
 <#
@@ -181,7 +181,7 @@ function Stop-Zap
 {
     [CmdletBinding()]
     # Kill daemon
-    $killStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/core/action/shutdown")
+    $killStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/core/action/shutdown") -usebasicparsing
 }
 
 <#
@@ -201,12 +201,12 @@ function Invoke-ZapSpidering
     
     Test-ZAPUrlToScanIsValid
     
-    $spiderId = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/spider/action/scan/?zapapiformat=JSON&url="+$script:urlToScan) | ConvertFrom-Json
+    $spiderId = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/spider/action/scan/?zapapiformat=JSON&url="+$script:urlToScan) -usebasicparsing | ConvertFrom-Json
     Write-Verbose ("Spidering invoked with message "+$spiderId)
     $spiderStatus = 0
     Do
     {
-        $spiderStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/spider/view/status?scanId="+$spiderId.scan) | ConvertFrom-Json | % { $_.Status }
+        $spiderStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/spider/view/status?scanId="+$spiderId.scan) -usebasicparsing | ConvertFrom-Json | % { $_.Status }
         Write-Verbose "Status of spidering is: $spiderStatus"
         Start-Sleep -s 1 
     }
@@ -231,12 +231,12 @@ function Invoke-ZapAjaxSpidering
     
     Test-ZAPUrlToScanIsValid
     
-    $ajaxStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ajaxSpider/action/scan/?zapapiformat=JSON&url="+$script:urlToScan) | ConvertFrom-Json
+    $ajaxStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ajaxSpider/action/scan/?zapapiformat=JSON&url="+$script:urlToScan) -usebasicparsing | ConvertFrom-Json
     Write-Verbose ("Ajax spidering started with message "+$ajaxStatus)
     $spiderStatus = 0
     Do
     {
-        $spiderStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ajaxSpider/view/status/?zapapiformat=JSON") | ConvertFrom-Json | % { $_.Status }
+        $spiderStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ajaxSpider/view/status/?zapapiformat=JSON") -usebasicparsing | ConvertFrom-Json | % { $_.Status }
         Write-Verbose "Status of ajax spidering is: $spiderStatus"
         Start-Sleep -s 1 
     }
@@ -260,12 +260,12 @@ function Invoke-ZapScanning
     
     Test-ZAPUrlToScanIsValid
     #scan
-    $scanId = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ascan/action/scan/?url="+$script:urlToScan) | ConvertFrom-Json
+    $scanId = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ascan/action/scan/?url="+$script:urlToScan) -usebasicparsing | ConvertFrom-Json
     Write-Verbose ("Scanning invoked with message "+$scanId)
     $scanStatus = 0
     Do
     {
-        $scanStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ascan/view/status?scanId="+$scanId.scan) | ConvertFrom-Json | % { $_.Status }
+        $scanStatus = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/JSON/ascan/view/status?scanId="+$scanId.scan) -usebasicparsing | ConvertFrom-Json | % { $_.Status }
         Write-Verbose "Status of scanning is: $scanStatus"
         Start-Sleep -s 1 
     }
@@ -288,10 +288,10 @@ function Remove-ZapAllScans
     [CmdletBinding()]
     param()
     # remove spider
-    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/removeAllScans/?zapapiformat=JSON")
+    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/removeAllScans/?zapapiformat=JSON") -usebasicparsing
     Write-Verbose ("Removed all spiders with message "+$removeStatus)
     # remove scan
-    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/removeAllScans/?zapapiformat=JSON")
+    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/removeAllScans/?zapapiformat=JSON") -usebasicparsing
     Write-Verbose ("Removed all scans with message "+$removeStatus)
 }
 
@@ -310,7 +310,7 @@ function Remove-ZapCurrentScan
     [CmdletBinding()]
     param()
     # remove scan
-    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/removeScan/?zapapiformat=JSON&scanId="+$script:currentScanId)
+    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/ascan/action/removeScan/?zapapiformat=JSON&scanId="+$script:currentScanId) -usebasicparsing
     Write-Verbose ("Removed a scan id ("+$script:currentScanId+") with message "+$removeStatus)
 }
 
@@ -329,7 +329,7 @@ function Remove-ZapCurrentSpider
     [CmdletBinding()]
     param()
     # remove spider
-    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/removeScan/?zapapiformat=JSON&scanId="+$script:currentSpiderId)
+    $removeStatus = Invoke-WebRequest ($script:zapBaseAddress+"/JSON/spider/action/removeScan/?zapapiformat=JSON&scanId="+$script:currentSpiderId) -usebasicparsing
     Write-Verbose ("Removed a spider id ("+$script:currentSpiderId+") with message "+$removeStatus)
 }
 
@@ -351,7 +351,7 @@ function Get-ZapAlerts
     Test-ZAPUrlToScanIsValid
     
     #fetch the report
-    [xml]$xmlReport = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/OTHER/core/other/xmlreport/")
+    [xml]$xmlReport = Invoke-WebRequest -Uri ($script:zapBaseAddress+"/OTHER/core/other/xmlreport/") -usebasicparsing
     $siteReport = $xmlReport.OWASPZAPReport.site | ? { $_.name -eq $script:urlToScan } | select alerts
     $siteReport.alerts.alertitem | % { $_ }
 }
@@ -424,7 +424,7 @@ function script:Test-ZAPUrlToScanIsValid
     $urlToScanStatus = 500
     try 
     {
-        $urlToScanStatus = (Invoke-WebRequest $script:urlToScan).StatusCode
+        $urlToScanStatus = (Invoke-WebRequest $script:urlToScan -usebasicparsing).StatusCode
     }
     catch
     {
