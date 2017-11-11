@@ -16,7 +16,7 @@ $ErrorActionPreference = 'Stop'
 # OWASP-ZAP is at default in 8084 port
 $script:zapBaseAddress = "http://localhost:8084"
 # OWASP-ZAP is at default installed under program files \OWASP\Zed Attack Proxy\
-$script:zapLocation = ((${env:ProgramFiles(x86)}, ${env:ProgramFiles} -ne $null)[0]+"\OWASP\Zed Attack Proxy\")
+$script:zapLocation = "${env:ProgramFiles}\OWASP\Zed Attack Proxy\"
 # Results can be by default stored in temp
 $script:zapReportLocation = ($env:temp+"\zapresults.xml")
 # Url to scan is the website to scan
